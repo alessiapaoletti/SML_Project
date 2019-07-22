@@ -36,6 +36,7 @@ def rolling_forecast(train, test, model_name, p, d, q):
         predictions.append(yhat)
         obs = test[t]
         history.append(obs)
+        history = history[1:]
 
     return predictions
 
@@ -50,11 +51,12 @@ def rolling_forecast_var(train, test, model_name, p, q):
         predictions = predictions.append(yhat)
         obs = test.iloc[t, :]
         history = history.append(obs)
+        history = history[1:]
 
     return predictions
 
 
-def plot_arima(train, test, predictions):
+def plot_arima(train, test, predictions, title):
     plt.figure(figsize=(17, 9))
     titles = ['prediction', 'reality']
     plt.plot(test.index, predictions, color='orange', linewidth=1.5)
@@ -62,5 +64,27 @@ def plot_arima(train, test, predictions):
     plt.plot(train.index, train, color='b', linewidth=1.5)
     plt.legend(titles)
     plt.ylabel('Series')
-    plt.title('Performance of predictions - Benchmark Predictions vs Reality')
+    plt.title('Performance of predictions - Benchmark Predictions vs Reality ' + title)
     plt.show()
+    
+    
+def smape(A, F):
+    A, F = np.array(A), np.array(F)
+    return np.mean(2 * np.abs(F - A) / (np.abs(A) + np.abs(F)))*100
+
+def perform_var_pred(dataframe):
+    train_size = int(dataframe.shape[0]*0.66)
+    train = dataframe.iloc[0:train_size,:]
+    test = dataframe.iloc[train_size:,:]
+    predictions = pd.DataFrame(columns = dataframe.columns)
+    for t in range(test.shape[0]):
+        model = VAR(train)
+        model_fit = model.fit(maxlags = 10, ic = 'aic')
+        lag_order = model_fit.k_ar
+        yhat = model_fit.forecast(train.values[-lag_order:], steps = 1)
+        predictions = predictions.append(pd.DataFrame(list(yhat), columns = dataframe.columns))
+        train = train.append(test.iloc[t,:])
+        
+    #error = mean_squared_error(test.values, predictions.values, multioutput='raw_values')
+    predictions.index = test.index
+    return predictions 
